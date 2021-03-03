@@ -42,8 +42,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/trustbloc/edge-core/pkg/log"
-	"github.com/trustbloc/edge-core/pkg/storage"
 
 	"github.com/trustbloc/edge-adapter/pkg/aries"
 	adaptercrypto "github.com/trustbloc/edge-adapter/pkg/crypto"
@@ -576,7 +576,6 @@ func (o *Operation) getCHAPIRequestHandler(rw http.ResponseWriter, req *http.Req
 
 	if o.governanceProvider != nil {
 		governanceVC, err := o.governanceProvider.GetCredential(profile.ID)
-
 		if err != nil {
 			commhttp.WriteErrorResponseWithLog(rw, http.StatusInternalServerError,
 				fmt.Sprintf("error retrieving governance vc : %s", err.Error()), getCHAPIRequestEndpoint, logger)
@@ -671,7 +670,7 @@ func (o *Operation) getClientData(profileData *issuer.ProfileData) (*oidcClientD
 		return clientData, nil
 	}
 
-	if !errors.Is(err, storage.ErrValueNotFound) {
+	if !errors.Is(err, storage.ErrDataNotFound) {
 		return nil, fmt.Errorf("error getting client data: %w", err)
 	}
 
@@ -824,7 +823,7 @@ func (o *Operation) saveOIDCClientData(providerURL string, data *oidcClientData)
 func (o *Operation) loadOIDCClientData(providerURL string) (*oidcClientData, error) {
 	readBytes, err := o.oidcClientStore.Get(providerURL)
 	if err != nil {
-		if errors.Is(err, storage.ErrValueNotFound) {
+		if errors.Is(err, storage.ErrDataNotFound) {
 			return nil, err
 		}
 
@@ -1235,7 +1234,6 @@ func (o *Operation) createCredential(url, token, signingKey string, assuranceCre
 	}
 
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(reqBytes))
-
 	if err != nil {
 		return nil, err
 	}
@@ -1484,45 +1482,15 @@ func presentProofClient(prov presentproof.Provider, actionCh chan service.DIDCom
 }
 
 func getTxnStore(prov storage.Provider) (storage.Store, error) {
-	err := prov.CreateStore(txnStoreName)
-	if err != nil && !errors.Is(err, storage.ErrDuplicateStore) {
-		return nil, err
-	}
-
-	txnStore, err := prov.OpenStore(txnStoreName)
-	if err != nil {
-		return nil, err
-	}
-
-	return txnStore, nil
+	return prov.OpenStore(txnStoreName)
 }
 
 func getTokenStore(prov storage.Provider) (storage.Store, error) {
-	err := prov.CreateStore(tokenStoreName)
-	if err != nil && !errors.Is(err, storage.ErrDuplicateStore) {
-		return nil, err
-	}
-
-	txnStore, err := prov.OpenStore(tokenStoreName)
-	if err != nil {
-		return nil, err
-	}
-
-	return txnStore, nil
+	return prov.OpenStore(tokenStoreName)
 }
 
 func getOIDCClientStore(prov storage.Provider) (storage.Store, error) {
-	err := prov.CreateStore(oidcClientStoreName)
-	if err != nil && !errors.Is(err, storage.ErrDuplicateStore) {
-		return nil, err
-	}
-
-	oidcStore, err := prov.OpenStore(oidcClientStoreName)
-	if err != nil {
-		return nil, err
-	}
-
-	return oidcStore, nil
+	return prov.OpenStore(oidcClientStoreName)
 }
 
 func fetchAuthorizationCreReq(msg service.DIDCommAction) (*AuthorizationCredentialReq, error) { // nolint: gocyclo
