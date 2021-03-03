@@ -22,7 +22,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	cbor "github.com/fxamacker/cbor/v2"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
@@ -796,14 +795,14 @@ func (o *Operation) httpRequestHelper(method, url string, statusCode int, reqBod
 }
 
 type oidcClientDataWrapper struct {
-	Nonce   []byte `cbor:"1,keyasint"`
-	Payload []byte `cbor:"2,keyasint"`
+	Nonce   []byte `json:"nonce"`
+	Payload []byte `json:"pld"`
 }
 
 type oidcClientData struct {
-	ID     string `cbor:"1,keyasint"`
-	Secret string `cbor:"2,keyasint"`
-	Expiry int    `cbor:"3,keyasint"`
+	ID     string `json:"id"`
+	Secret string `json:"secret"`
+	Expiry int    `json:"exp"`
 }
 
 func (o *Operation) saveOIDCClientData(providerURL string, data *oidcClientData) error {
@@ -839,7 +838,7 @@ func (o *Operation) loadOIDCClientData(providerURL string) (*oidcClientData, err
 }
 
 func encryptClientData(providerURL string, key []byte, data *oidcClientData) ([]byte, error) {
-	dataBytes, err := cbor.Marshal(data)
+	dataBytes, err := json.Marshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling data: %w", err)
 	}
@@ -866,7 +865,7 @@ func encryptClientData(providerURL string, key []byte, data *oidcClientData) ([]
 		Payload: cipherText,
 	}
 
-	wrappedBytes, err := cbor.Marshal(dataWrapper)
+	wrappedBytes, err := json.Marshal(dataWrapper)
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling wrapper: %w", err)
 	}
@@ -877,9 +876,9 @@ func encryptClientData(providerURL string, key []byte, data *oidcClientData) ([]
 func decryptClientData(key, readBytes []byte) (*oidcClientData, error) {
 	wrapper := oidcClientDataWrapper{}
 
-	err := cbor.Unmarshal(readBytes, &wrapper)
+	err := json.Unmarshal(readBytes, &wrapper)
 	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling wrapper: %w", err)
+		return nil, fmt.Errorf("error unmarshaling wrapper containing data %v: %w", string(readBytes), err)
 	}
 
 	block, err := aes.NewCipher(key)
@@ -899,7 +898,7 @@ func decryptClientData(key, readBytes []byte) (*oidcClientData, error) {
 
 	var data oidcClientData
 
-	err = cbor.Unmarshal(plainText, &data)
+	err = json.Unmarshal(plainText, &data)
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshaling client data: %w", err)
 	}
